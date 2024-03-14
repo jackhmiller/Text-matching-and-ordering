@@ -15,13 +15,10 @@ for i in range(n_examples):
 
 train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
 
-## Step 1: use an existing language model
 word_embedding_model = models.Transformer('distilroberta-base')
 
-## Step 2: use a pool function over the token embeddings
 pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
 
-## Join steps 1 and 2 using the modules argument
 model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
 train_loss = losses.MultipleNegativesRankingLoss(model=model)
