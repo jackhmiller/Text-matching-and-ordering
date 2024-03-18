@@ -39,38 +39,46 @@ def run():
 
 	dialogues = Preprocessor(file=os.getenv('DIALOGUES_FILE'),
 							 ner=True,
+							 embed=True,
 							 model=embedding_model)
 	dialogues.process_text()
 	pieces = (Preprocessor(file=os.getenv('SUMMARY_PIECES_FILE'),
-						  ner=True,
-						  model=embedding_model))
+						   ner=True,
+						   embed=True,
+						   model=embedding_model))
 	pieces.process_text()
 
-	ClusterModel()
-	pieces_df = cluster_pieces(num_clusters=len(dialogues.df),
-							   df=pieces.df)
+	cluster_model = ClusterModel(n_clusters=len(dialogues.df))
+	cluster_model.train(pieces.df['embedding'])
+	pieces.df['label_1'] = cluster_model.model_1.labels_
+	pieces.df['label_2'] = cluster_model.model_2.labels_
 
-	results = []
-	for cluster in pieces_df.cluster_assignment.values:
-		clustered_sentences = pieces_df[pieces_df['cluster_assignment'] == cluster]['pieces'].values.tolist()
-		encoded_cluster = embedding_model.encode('.'.join(clustered_sentences))
+	all_model_results = {}
+	for label in ['label_1', 'label_2']:
+		results = []
+		for cluster in pieces.df.label.values:
+			clustered_sentences = pieces.df[pieces.df[label] == cluster]['pieces'].values.tolist()
+			encoded_cluster = embedding_model.encode('.'.join(clustered_sentences))
 
-		dialogues.df["similarity"] = dialogues.df['embedding'].apply(lambda x: cosine_similarity(x, encoded_cluster))
-		top_dialogue_match_df = dialogues.df.sort_values("similarity", ascending=False).head(1)
-		dialogue_id = top_dialogue_match_df['id'].values
+			dialogues.df["similarity"] = dialogues.df['embedding'].apply(lambda x: cosine_similarity(x, encoded_cluster))
+			top_dialogue_match_df = dialogues.df.sort_values("similarity", ascending=False).head(1)
+			dialogue_id = top_dialogue_match_df['id'].values
 
-		llm = LLMTextOrderer()
-		ordered_summary = llm.order_sentences(sentences=clustered_sentences,
-											  text=top_dialogue_match_df['dialogue'].values)
-		results.append([(dialogue_id, sentence, index) for index, sentence in enumerate(ordered_summary.split('. '))])
+			llm = LLMTextOrderer()
+			ordered_summary = llm.order_sentences(sentences=clustered_sentences,
+												  text=top_dialogue_match_df['dialogue'].values)
+			results.append([(dialogue_id, sentence, index) for index, sentence in enumerate(ordered_summary.split('. '))])
 
-	final = list(itertools.chain.from_iterable(results))
-	final_df = pd.DataFrame(final, columns=['dialogue_id', 'summary_piece', 'position_index'])
-	final_df.to_csv(r".\results.csv")
+		all_model_results[label] = list(itertools.chain.from_iterable(results))
+		final_df = pd.DataFrame(all_model_results[label], columns=['dialogue_id', 'summary_piece', 'position_index'])
+		if not os.path.exists("./results"):
+			os.makedirs("./results")
+
+		final_df.to_csv(f"./results/{label}_results.csv")
 
 
 if __name__ == '__main__':
-	load_dotenv(r"../.env")
+	load_dotenv("../.env")
 
 	api_keys_path = os.path.join(os.path.expanduser("~"), os.getenv('TOKEN_PATH'))
 
