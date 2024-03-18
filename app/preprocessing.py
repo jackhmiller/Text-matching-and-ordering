@@ -9,7 +9,7 @@ NLP = spacy.load("en_core_web_sm")
 
 
 class Preprocessor:
-    def __init__(self, file: str, ner: bool, embed: bool, model):
+    def __init__(self, file: str, ner: bool, embed: bool, model=None):
         self.ner = ner
         self.df = pd.read_csv(os.path.join(os.getenv('DATA_PATH'), file))
         self.text_column = os.getenv('COLUMNS')[file.split('.')[0]]

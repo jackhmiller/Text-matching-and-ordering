@@ -30,7 +30,7 @@ class ClusterModel:
 	def train(self, X) -> None:
 		if not self.density:
 			X = normalize(X)
-			# Since KMeans measures euclidean distance (which is proportional to cosine similarity)
+			# Since KMeans measures Euclidean distance (which is proportional to cosine similarity)
 			# normalizing the vector embeddings means we are using dot product which is equal to cosine similarity
 		self.model_1.fit(X)
 		self.model_2.fit(X)
