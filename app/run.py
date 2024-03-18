@@ -1,4 +1,4 @@
-
+import json
 import os
 from dotenv import load_dotenv
 from preprocessing import Preprocessor
@@ -8,8 +8,9 @@ import pandas as pd
 import numpy as np
 import itertools
 from sentence_transformers import SentenceTransformer
-from embedding_model import FinetunedSentenceTransformer
+from embedding_model import finetune_sentence_transformer
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
@@ -31,22 +32,23 @@ def cosine_similarity(a, b):
 def run():
 	validate_configuration()
 
-	if os.getenv('CREATE_EMBEDDINGS'): #todo data
-		embedding_model = FinetunedSentenceTransformer()
+	if os.getenv('CREATE_EMBEDDINGS'):
+		embedding_model = finetune_sentence_transformer()
 	else:
 		embedding_model = SentenceTransformer(os.getenv('EMBEDDING_MODEL'))
 
 	dialogues = Preprocessor(file=os.getenv('DIALOGUES_FILE'),
 							 ner=True,
 							 model=embedding_model)
-	pieces = Preprocessor(file=os.getenv('SUMMARY_PIECES_FILE'),
+	dialogues.process_text()
+	pieces = (Preprocessor(file=os.getenv('SUMMARY_PIECES_FILE'),
 						  ner=True,
-						  model=embedding_model)
-
+						  model=embedding_model))
+	pieces.process_text()
 
 	ClusterModel()
 	pieces_df = cluster_pieces(num_clusters=len(dialogues.df),
-												df=pieces.df)
+							   df=pieces.df)
 
 	results = []
 	for cluster in pieces_df.cluster_assignment.values:
@@ -69,4 +71,11 @@ def run():
 
 if __name__ == '__main__':
 	load_dotenv(r"../.env")
+
+	api_keys_path = os.path.join(os.path.expanduser("~"), os.getenv('TOKEN_PATH'))
+
+	with open(api_keys_path, 'r') as file:
+		api_key_dict = json.loads(file.read())
+
+	os.environ["OPENAI_API_KEY"] = api_key_dict['openai']
 	run()

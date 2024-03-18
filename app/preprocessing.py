@@ -9,16 +9,22 @@ NLP = spacy.load("en_core_web_sm")
 
 
 class Preprocessor:
-    def __init__(self, file: str, ner: bool, model):
+    def __init__(self, file: str, ner: bool, embed: bool, model):
         self.ner = ner
         self.df = pd.read_csv(os.path.join(os.getenv('DATA_PATH'), file))
         self.text_column = os.getenv('COLUMNS')[file.split('.')[0]]
-        self.df['cleaned_text'] = self.df[self.text_column].apply(self.clean_text)
+        self.embed = embed
         self.embedding_model = model
-        self.df['embedding'] = self.embed_text()
 
-    def clean_text(self) -> str:
-        text = self.raw_text.lower()
+        if embed:
+            try:
+                assert model is not None
+            except AssertionError:
+                raise "Please provide an embedding model"
+
+    @staticmethod
+    def clean_text(text) -> str:
+        text = text.lower()
         text = text.strip()
         text = re.compile('<.*?>').sub('', text)
         text = re.compile('[%s]' % re.escape(string.punctuation)).sub(' ', text)
@@ -36,7 +42,7 @@ class Preprocessor:
         longest_text = df_sorted[-1:]['cleaned_text'].values[0]
         return len(self.embedding_model.tokenize(longest_text))
 
-    def embed_text(self):
+    def embed_text(self) -> list:
         texts = self.df['cleaned_text'].values
         if self.ner:
             for i in range(len(texts)):
@@ -45,3 +51,8 @@ class Preprocessor:
                     texts[i] += f' {ent.text}'
 
         return [self.embedding_model.encode(text) for text in texts]
+
+    def process_text(self) -> None:
+        self.df['cleaned_text'] = self.df[self.text_column].apply(self.clean_text)
+        if self.embed:
+            self.df['embedding'] = self.embed_text()
