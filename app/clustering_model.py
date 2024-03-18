@@ -1,9 +1,6 @@
 from sklearn.metrics import adjusted_rand_score
-from sklearn.manifold import TSNE
 from sklearn.cluster import AgglomerativeClustering, DBSCAN, KMeans, HDBSCAN
-import pandas as pd
-import matplotlib.pyplot as plt
-from scipy import stats
+from sklearn.preprocessing import normalize
 
 
 class ClusterModel:
@@ -16,7 +13,8 @@ class ClusterModel:
 				 eps: int = 0.5,
 				 density: str = False
 				 ):
-		if density:
+		self.density = density
+		if self.density:
 			self.model_1 = DBSCAN(eps=eps,
 								  min_samples=min_samples,
 								  metric=metric)
@@ -30,10 +28,10 @@ class ClusterModel:
 												   linkage='single')
 
 	def train(self, X) -> None:
-		self.model_1.fit(X)
-		self.model_2.fit(X)
-
-	def fit(self, X) -> None:
+		if not self.density:
+			X = normalize(X)
+			# Since KMeans measures euclidean distance (which is proportional to cosine similarity)
+			# normalizing the vector embeddings means we are using dot product which is equal to cosine similarity
 		self.model_1.fit(X)
 		self.model_2.fit(X)
 
@@ -42,11 +40,3 @@ class ClusterModel:
 		model_2_rand = adjusted_rand_score(self.model_2.labels_, y_true)
 
 		return model_1_rand, model_2_rand
-
-
-# def cluster_pieces(num_clusters, df):
-# 	clustering_model = KMeans(n_clusters=num_clusters)
-# 	clustering_model.fit(df.embedding)
-# 	df['cluster_assignment'] = clustering_model.labels_
-#
-# 	return df
